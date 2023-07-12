@@ -40,9 +40,11 @@ class LoginUI(QDialog):
     def go_main_menu(self):
         conn= sqlite3.connect('data.db')
         curr= conn.cursor()
-        userx = self.emailInputLogin.text()
-        if len(userx)!=0:
-            curr.execute('SELECT COUNT(*) FROM User WHERE email =?',(userx,))   
+        #global userx 
+        self.userx= self.emailInputLogin.text()
+        LoginUI.userx=self.userx
+        if len(self.userx)!=0:
+            curr.execute('SELECT COUNT(*) FROM User WHERE email =?',(self.userx,))   
             count= curr.fetchone()[0]
             curr.close()
             conn.close()         
@@ -57,30 +59,72 @@ class LoginUI(QDialog):
             self.errorTextLogin.setText('Lütfen geçerli bir email adresi giriniz.')  
            
 class MainMenuUI(QDialog):
-    #Bunu yapacagiz (Ozcan)
+    
+    # project_name=''
+    # project_id=0
+    # subject_name=''
+    # subject_id=0
     def __init__(self):
         super(MainMenuUI,self).__init__()
         loadUi("./UI/mainMenu.ui",self)
+       
         self.addProjectButton.clicked.connect(self.addProject)
         self.addSubjectButton.clicked.connect(self.addSubject)
+        #self.addSubjectOnProjectCombo.clear()
+        # self.showSummaryButton.clicked.connect(self.showSummary)
+        # self.sendEmailThisSummaryButton.clicked.connect(self.sendEmailThisSummary)
         self.errorTextProjectLabel.setText('')
         self.errorTextSubjectLabel.setText('')
+        conn= sqlite3.connect('data.db')
+        curr= conn.cursor()
+        curr.execute("SELECT project_name FROM Project WHERE user_id_fk = (SELECT user_id_pk FROM User WHERE email = ?)", (LoginUI.userx,)
+)
+        result = curr.fetchall()
+        result2=list(result)
+        for re in result2:
+            self.addSubjectOnProjectCombo.addItem(re[0])
+            
         
-        
+    # def showSummary(self):
+    #     conn= sqlite3.connect('data.db')  
+    #     curr= conn.cursor()
+    #     sqlquery= 'SELECT create_date,start,finish,succes FROM session'
+    #     tablerow=0
+    #     for row in curr.execute(sqlquery):
+    #         print(row)
+    #         self.summaryTableValuesWidget.setItem(tablerow,0,QtWidgets.QsummaryTableValuesWidgetItem(row[0]))
+    #         self.summaryTableValuesWidget.setItem(tablerow,1,QtWidgets.QsummaryTableValuesWidgetItem(row[0]))
+    #         self.summaryTableValuesWidget.setItem(tablerow,2,QtWidgets.QsummaryTableValuesWidgetItem(row[0]))
+    #         self.summaryTableValuesWidget.setItem(tablerow,3,QtWidgets.QsummaryTableValuesWidgetItem(row[0]))
+    #         self.summaryTableValuesWidget.setItem(tablerow,4,QtWidgets.QsummaryTableValuesWidgetItem(row[0]))
+            
+    #         tablerow+=1
+        # pass   
+    def sendEmailThisSummary(self):
+        pass
+            
     def addProject(self):
         conn= sqlite3.connect('data.db')
         curr= conn.cursor()
-        project_name= self.addProjectInput.text()
+        self.project_name= self.addProjectInput.text()
+        MainMenuUI.project_name=self.project_name
         # Veritabanında proje adını sorgulama
-        curr.execute("SELECT * FROM project WHERE project_name=?",(project_name,))
+        curr.execute("SELECT * FROM Project WHERE project_name=?",(self.project_name,))
         result = curr.fetchone()
         
         if result is not None:
             self.errorTextProjectLabel.setText('Bu proje veritabanında mevcut.')
         else:
             # Proje bilgilerini veritabanına ekliyor.
-            curr.execute("INSERT INTO project (project_name) VALUES (?)", (project_name,))
+            curr.execute("SELECT user_id_pk FROM User WHERE email = ?",(LoginUI.userx,))
+            
+            self.emails= curr.fetchone()[0]
+            #son= curr.execute(user_id_fk)
+            curr.execute("INSERT INTO Project (project_name, user_id_fk) VALUES (?,?)", (self.project_name, self.emails ))
+            
             conn.commit()
+            
+            self.addSubjectOnProjectCombo.addItem(self.project_name)
             self.errorTextProjectLabel.setText('Proje veritabanına eklendi.')
         # Veritabanı bağlantısını kapat
         conn.close()
@@ -91,14 +135,16 @@ class MainMenuUI(QDialog):
         curr= conn.cursor()
         subject_name= self.addSubjectInput.text()
         # Veritabanında proje adını sorgulama
-        curr.execute("SELECT * FROM subject WHERE subject_name=?",(subject_name,))
+        curr.execute("SELECT * FROM Subject WHERE subject_name=?",(subject_name,))
         result = curr.fetchone()
         
         if result is not None:
             self.errorTextSubjectLabel.setText('Bu subject veritabanında mevcut.')
         else:
             # Proje bilgilerini veritabanına ekliyor.
-            curr.execute("INSERT INTO subject (subject_name) VALUES (?)", (subject_name,))
+            #curr.execute("SELECT project_id_pk FROM Project WHERE project = ?",(userx,))
+            #project= curr.fetchone()
+            curr.execute("INSERT INTO Subject (project_id_fk,user_id_fk,subject_name) VALUES (?,?,?)", (self.emails,subject_name,))
             conn.commit()
             self.errorTextSubjectLabel.setText('Subject veritabanına eklendi.')
         # Veritabanı bağlantısını kapat
@@ -338,7 +384,7 @@ class LongBreakUI(QDialog):
 
 
 app = QApplication(sys.argv)
-UI = PomodoroUI() # This line determines which screen you will load at first
+UI = LoginUI() # This line determines which screen you will load at first
 
 # You can also try one of other screens to see them.
     # UI = MainMenuUI()
